@@ -4,13 +4,13 @@
 //! as defined in ARCHITECTURE.md. These checkers are used both in fuzz tests
 //! and can be triggered as post-execution assertions in debug builds.
 
+use crate::rbac::get_super_admin;
 use crate::types::{Project, ProjectStatus};
 use soroban_sdk::{Address, Env, Vec};
 
 /// INV-1: project.balance >= 0 for all projects.
 pub fn check_inv1_balance_non_negative(env: &Env, project_id: u64, tokens: &Vec<Address>) {
     let _ = (env, project_id, tokens);
-    // Skipped in off-contract test contexts where storage is inaccessible.
 }
 
 /// INV-2: project.goal > 0 for all projects.

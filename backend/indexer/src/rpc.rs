@@ -241,12 +241,16 @@ fn decode_data(
             let amount = extract_field(value, &["amount"]);
             (actor, amount, None)
         }
+        EventKind::ProjectActive | EventKind::ProjectExpired => (None, None, None),
+        EventKind::ProjectCancelled => {
+            let actor = extract_field(value, &["cancelled_by", "address"]);
+            (actor, None, None)
+        }
         EventKind::ProjectVerified => {
             let actor = extract_field(value, &["oracle", "verifier", "address"]);
             let extra = extract_field(value, &["proof_hash", "hash", "data"]);
             (actor, None, extra)
         }
-        EventKind::ProjectActive | EventKind::ProjectExpired => (None, None, None),
         EventKind::FundsReleased => {
             let amount = extract_field(value, &["amount"]);
             let token = extract_field(value, &["token"]);

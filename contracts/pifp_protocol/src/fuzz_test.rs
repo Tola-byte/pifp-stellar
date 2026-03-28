@@ -306,8 +306,8 @@ proptest! {
         }
 
         let mut soroban_projects = SorobanVec::new(&env);
-        for p in projects {
-            soroban_projects.push_back(p);
+        for project in projects {
+            soroban_projects.push_back(project);
         }
         check_inv6_sequential_ids(&soroban_projects);
     }

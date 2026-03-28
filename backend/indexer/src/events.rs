@@ -13,8 +13,14 @@ pub enum EventKind {
     ProjectCreated,
     /// A donation was made to a project (`funded` topic).
     ProjectFunded,
+    /// A project reached active state (`active` topic).
+    ProjectActive,
     /// An oracle verified a project's proof (`verified` topic).
     ProjectVerified,
+    /// A project expired without completion (`expired` topic).
+    ProjectExpired,
+    /// A project was manually cancelled (`cancelled` topic).
+    ProjectCancelled,
     /// Verified funds were released to the creator (`released` topic).
     FundsReleased,
     /// Donator funds were refunded from an expired project (`refunded` topic).
@@ -27,10 +33,6 @@ pub enum EventKind {
     ProtocolPaused,
     /// Protocol was unpaused (`unpaused` topic).
     ProtocolUnpaused,
-    /// A project crossed its funding goal (`active` topic).
-    ProjectActive,
-    /// A project reached its deadline without being verified (`expired` topic).
-    ProjectExpired,
     /// An event from this contract that we don't recognise yet.
     Unknown,
 }
@@ -41,15 +43,16 @@ impl EventKind {
         match topic {
             "created" => Self::ProjectCreated,
             "funded" => Self::ProjectFunded,
+            "active" => Self::ProjectActive,
             "verified" => Self::ProjectVerified,
+            "expired" => Self::ProjectExpired,
+            "cancelled" => Self::ProjectCancelled,
             "released" => Self::FundsReleased,
             "refunded" => Self::DonatorRefunded,
             "role_set" => Self::RoleSet,
             "role_del" => Self::RoleDel,
             "paused" => Self::ProtocolPaused,
             "unpaused" => Self::ProtocolUnpaused,
-            "active" => Self::ProjectActive,
-            "expired" => Self::ProjectExpired,
             _ => Self::Unknown,
         }
     }
@@ -59,15 +62,16 @@ impl EventKind {
         match self {
             Self::ProjectCreated => "project_created",
             Self::ProjectFunded => "project_funded",
+            Self::ProjectActive => "project_active",
             Self::ProjectVerified => "project_verified",
+            Self::ProjectExpired => "project_expired",
+            Self::ProjectCancelled => "project_cancelled",
             Self::FundsReleased => "funds_released",
             Self::DonatorRefunded => "donator_refunded",
             Self::RoleSet => "role_set",
             Self::RoleDel => "role_del",
             Self::ProtocolPaused => "protocol_paused",
             Self::ProtocolUnpaused => "protocol_unpaused",
-            Self::ProjectActive => "project_active",
-            Self::ProjectExpired => "project_expired",
             Self::Unknown => "unknown",
         }
     }
