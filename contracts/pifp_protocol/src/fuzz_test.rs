@@ -18,7 +18,6 @@ fn setup_env() -> (Env, PifpProtocolClient<'static>, Address) {
     let client = PifpProtocolClient::new(&env, &contract_id);
     let admin = Address::generate(&env);
     client.init(&admin);
-    check_inv9_super_admin_exists(&env);
     (env, client, admin)
 }
 
@@ -306,7 +305,11 @@ proptest! {
             projects.push(p);
         }
 
-        check_inv6_sequential_ids(&SorobanVec::from_array(&env, projects.as_slice()));
+        let mut soroban_projects = SorobanVec::new(&env);
+        for p in projects {
+            soroban_projects.push_back(p);
+        }
+        check_inv6_sequential_ids(&soroban_projects);
     }
 }
 

@@ -25,9 +25,7 @@
 
 #![no_std]
 
-use soroban_sdk::{
-    contract, contractimpl, panic_with_error, token, Address, BytesN, Env, Vec,
-};
+use soroban_sdk::{contract, contractimpl, panic_with_error, token, Address, BytesN, Env, Vec};
 
 pub mod errors;
 pub mod events;
@@ -46,6 +44,8 @@ mod test;
 #[cfg(test)]
 mod test_donation_count;
 #[cfg(test)]
+mod test_errors;
+#[cfg(test)]
 mod test_events;
 #[cfg(test)]
 mod test_expire;
@@ -53,8 +53,6 @@ mod test_expire;
 mod test_refund;
 #[cfg(test)]
 mod test_utils;
-#[cfg(test)]
-mod test_errors;
 
 pub use errors::Error;
 pub use events::emit_funds_released;
@@ -64,8 +62,6 @@ use storage::{
     load_project_pair, maybe_load_project, save_project, save_project_state,
 };
 pub use types::{Project, ProjectBalances, ProjectStatus};
-
-
 
 #[contract]
 pub struct PifpProtocol;
@@ -293,9 +289,10 @@ impl PifpProtocol {
 
         // Check if this is a new unique (donator, token) pair.
         // A donator balance of 0 implicitly proves they have not donated yet, saving a storage key entirely.
-        let current_donor_balance = storage::get_donator_balance(&env, project_id, &token, &donator);
+        let current_donor_balance =
+            storage::get_donator_balance(&env, project_id, &token, &donator);
         let is_new_donor = current_donor_balance == 0;
-        
+
         if is_new_donor {
             // Increment donation count
             state.donation_count += 1;
@@ -305,7 +302,7 @@ impl PifpProtocol {
 
         // Transfer tokens from donator to contract.
         let token_client = token::Client::new(&env, &token);
-        token_client.transfer(&donator, &env.current_contract_address(), &amount);
+        token_client.transfer(&donator, env.current_contract_address(), &amount);
 
         // Update the per-token balance.
         let new_balance = storage::add_to_token_balance(&env, project_id, &token, amount);
@@ -322,14 +319,50 @@ impl PifpProtocol {
         }
 
         // Track per-donator refundable amount for this token.
-        let new_donor_balance = current_donor_balance.checked_add(amount).expect("donator balance overflow");
+        let new_donor_balance = current_donor_balance
+            .checked_add(amount)
+            .expect("donator balance overflow");
         storage::set_donator_balance(&env, project_id, &token, &donator, new_donor_balance);
 
         // Standardized event emission
         events::emit_project_funded(&env, project_id, donator, amount);
     }
 
-    /// Refund a donator from an expired project that was not verified.
+    /// Mark an active project as cancelled.
+    ///
+    /// - `caller` must be `SuperAdmin` or `ProjectManager`.
+    /// - If `caller` is `ProjectManager`, it must be the project's creator.
+    /// - Only projects in `Active` status may be cancelled.
+    pub fn cancel_project(env: Env, caller: Address, project_id: u64) {
+        caller.require_auth();
+        rbac::require_can_cancel_project(&env, &caller);
+
+        let (config, mut state) = load_project_pair(&env, project_id);
+
+        if env.ledger().timestamp() >= config.deadline
+            && matches!(state.status, ProjectStatus::Funding | ProjectStatus::Active)
+        {
+            state.status = ProjectStatus::Expired;
+            save_project_state(&env, project_id, &state);
+            panic_with_error!(&env, Error::ProjectExpired);
+        }
+
+        if matches!(rbac::get_role(&env, &caller), Some(Role::ProjectManager))
+            && caller != config.creator
+        {
+            panic_with_error!(&env, Error::NotAuthorized);
+        }
+
+        if state.status != ProjectStatus::Active {
+            panic_with_error!(&env, Error::InvalidTransition);
+        }
+
+        state.status = ProjectStatus::Cancelled;
+        save_project_state(&env, project_id, &state);
+        events::emit_project_cancelled(&env, project_id, caller);
+    }
+
+    /// Refund a donator from a cancelled or expired project that was not verified.
     pub fn refund(env: Env, donator: Address, project_id: u64, token: Address) {
         donator.require_auth();
 
@@ -342,7 +375,10 @@ impl PifpProtocol {
             save_project_state(&env, project_id, &state);
         }
 
-        if state.status != ProjectStatus::Expired {
+        if !matches!(
+            state.status,
+            ProjectStatus::Expired | ProjectStatus::Cancelled
+        ) {
             panic_with_error!(&env, Error::ProjectNotExpired);
         }
 
@@ -409,6 +445,7 @@ impl PifpProtocol {
             ProjectStatus::Funding | ProjectStatus::Active => {}
             ProjectStatus::Completed => panic_with_error!(&env, Error::MilestoneAlreadyReleased),
             ProjectStatus::Expired => panic_with_error!(&env, Error::ProjectExpired),
+            ProjectStatus::Cancelled => panic_with_error!(&env, Error::InvalidTransition),
         }
 
         // Mocked ZK verification: compare submitted hash to stored hash.

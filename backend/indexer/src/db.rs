@@ -142,6 +142,7 @@ pub async fn insert_events(pool: &SqlitePool, events: &[PifpEvent]) -> Result<us
 // ─────────────────────────────────────────────────────────
 
 /// Fetch all events for a given project, ordered by ledger ascending.
+#[allow(dead_code)]
 pub async fn get_events_for_project(
     pool: &SqlitePool,
     project_id: &str,

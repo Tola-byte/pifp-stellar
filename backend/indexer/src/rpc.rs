@@ -216,7 +216,10 @@ fn decode_single(raw: &RawEvent, contract_id: &str) -> Option<PifpEvent> {
 
 /// Pull apart the JSON `value` blob that Soroban returns for event data.
 /// The XDR is decoded by the RPC into a `{"type":…, …}` JSON object.
-fn decode_data(value: &Value, kind: &EventKind) -> (Option<String>, Option<String>, Option<String>) {
+fn decode_data(
+    value: &Value,
+    kind: &EventKind,
+) -> (Option<String>, Option<String>, Option<String>) {
     match kind {
         EventKind::ProjectCreated => {
             let actor = value
@@ -230,7 +233,7 @@ fn decode_data(value: &Value, kind: &EventKind) -> (Option<String>, Option<Strin
                     .map(String::from)
                     .or_else(|| v.as_i64().map(|n| n.to_string()))
             });
-            let extra = value.get("token").and_then(|v| value_to_string(v));
+            let extra = value.get("token").and_then(value_to_string);
             (actor, amount, extra)
         }
         EventKind::ProjectFunded => {
